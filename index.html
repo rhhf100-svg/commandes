@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mes commandes et bénéfices</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap">
+<style>
+:root{
+  --bg:#EEF1F4;--surface:#FFFFFF;--ink:#16222E;--muted:#5C6B7A;--line:#D9E0E7;
+  --accent:#1F5FBF;--accent-ink:#FFFFFF;--danger:#C0392B;--gain:#1E7A4C;
+  color-scheme:light;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1720;--surface:#18232F;--ink:#E8EEF4;--muted:#93A2B1;--line:#2A3846;
+    --accent:#6FA3F2;--accent-ink:#0F1720;--danger:#F0816F;--gain:#5CC48D;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1720;--surface:#18232F;--ink:#E8EEF4;--muted:#93A2B1;--line:#2A3846;
+  --accent:#6FA3F2;--accent-ink:#0F1720;--danger:#F0816F;--gain:#5CC48D;color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:680px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.1rem;font-weight:600;margin:0 0 14px}
+h2{font-size:1rem;font-weight:600;margin:0}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stats div{min-width:0}
+.stats small{color:var(--muted);display:block}
+.stats b{font-size:1.15rem;font-weight:600;font-variant-numeric:tabular-nums;display:block;overflow-wrap:anywhere}
+.big .stats b{font-size:clamp(1.1rem,4.6vw,1.6rem)}
+.big .profit b{font-size:clamp(1.4rem,6vw,2.1rem);font-weight:800}
+.pos{color:var(--gain)}.neg{color:var(--danger)}
+.hint{color:var(--muted);font-size:.9rem;margin:0 0 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input{padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0}
+.grow{flex:1 1 140px}.amt{flex:0 1 110px;width:110px}
+.primary{padding:9px 14px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer}
+.mini{padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:none;cursor:pointer;font-size:.85rem}
+.mini:hover{border-color:var(--accent)}
+.mini.ok{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.mini.warn{color:var(--danger);border-color:var(--danger)}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px}
+.head small{color:var(--muted)}
+.head .row{flex:none}
+.sec{border-top:1px solid var(--line);padding-top:12px;margin-top:14px}
+.sec>.row{justify-content:space-between;margin-bottom:4px}
+.sec .tot{font-weight:600;font-variant-numeric:tabular-nums}
+ul{list-style:none;margin:0;padding:0}
+li{padding:7px 0;border-top:1px solid var(--line)}
+li:first-child{border-top:0}
+li.l{display:flex;align-items:center;gap:8px}
+li .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li .t.none{color:var(--muted);font-style:italic}
+li .a{font-weight:600;font-variant-numeric:tabular-nums}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:2px 8px}
+.x:hover{color:var(--danger)}
+.empty{color:var(--muted);margin:0;padding:4px 0}
+.add{margin-top:8px}
+.sync small,.sync .hint{color:var(--muted)}
+.sync .row{margin-top:8px}
+#st.ko{color:var(--danger)}
+.err{color:var(--danger);font-size:.85rem;margin:4px 0 0;min-height:1em}
+</style>
+</head>
+<body>
+<main>
+  <h1>Mes commandes et bénéfices</h1>
+  <section class="card big" id="summary" aria-live="polite"></section>
+  <section class="card">
+    <h2>Nouvelle commande</h2>
+    <p class="hint">Chaque commande a ses dépenses (achats, frais) et ses revenus (produits vendus). Un montant négatif sert pour un remboursement ou un retour.</p>
+    <form class="row" id="newForm" data-act="newo">
+      <input class="grow" name="name" maxlength="60" placeholder="Nom de la commande (facultatif)" autocomplete="off">
+      <button class="primary" type="submit">Créer la commande</button>
+    </form>
+  </section>
+  <div id="orders"></div>
+  <section class="card sync" id="sync">
+    <h2>Synchronisation</h2>
+    <p class="hint">Vos données sont enregistrées en ligne (Supabase). Sur un autre appareil, ouvrez le lien ci-dessous : vous retrouverez tout. Gardez-le privé, il donne accès à vos données.</p>
+    <p class="hint" style="margin:0">État : <b id="st">…</b></p>
+    <div class="row"><button class="mini" type="button" data-sync="copy">Copier le lien de synchronisation</button><button class="mini" type="button" data-sync="now">Synchroniser maintenant</button></div>
+    <form class="row" data-sync="setkey"><input class="grow" name="key" placeholder="Coller une clé existante (autre appareil)" autocomplete="off"><button class="mini" type="submit">Utiliser</button></form>
+    <p class="err" id="synerr"></p>
+  </section>
+</main>
+<script>
+(function(){
+  var KEY="commandes-v1",OLD="depenses-v1",seq=Date.now();
+  var state={orders:[]},editing=null,confirmDel=null;
+  var eur=new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"});
+  var sgn=new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",signDisplay:"exceptZero"});
+  function uid(){return ++seq}
+  function pad(n){return n<10?"0"+n:""+n}
+  function today(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  function parseNum(v){var n=parseFloat(String(v).replace(/\s/g,"").replace("\u2212","-").replace(",","."));return isNaN(n)?NaN:Math.round(n*100)/100;}
+  function sum(a){return a.reduce(function(s,l){return s+l.amount},0)}
+  function cls(n){return n>0?"pos":n<0?"neg":""}
+  function save(){state.ts=Date.now();try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}push();}
+  try{
+    var r=localStorage.getItem(KEY);
+    if(r){var p=JSON.parse(r);if(p&&Array.isArray(p.orders)){state.orders=p.orders;state.ts=p.ts||0;}}
+    else{var ro=localStorage.getItem(OLD);if(ro){var po=JSON.parse(ro);
+      if(po&&Array.isArray(po.items)&&po.items.length)state.orders.push({id:uid(),name:"Anciennes dépenses",date:today(),
+        exp:po.items.map(function(i){return{id:uid(),desc:i.desc||"",amount:i.amount}}),rev:[]});}}
+  }catch(e){}
+
+  function find(id){return state.orders.filter(function(o){return o.id===id})[0]}
+  function dfr(d){return d.slice(8,10)+"/"+d.slice(5,7)+"/"+d.slice(0,4)}
+  function stat(label,v,signed,extra){return '<div class="'+(extra||"")+'"><small>'+label+'</small><b class="'+(signed?cls(v):"")+'">'+(signed?sgn:eur).format(v)+'</b></div>'}
+
+  function lineHTML(o,k,l){
+    var d='data-o="'+o.id+'" data-k="'+k+'" data-l="'+l.id+'"';
+    if(editing&&editing.o===o.id&&editing.k===k&&editing.l===l.id)
+      return '<li><form class="row edit" data-act="savel" '+d+'><input class="grow" name="desc" maxlength="60" placeholder="Description (facultatif)" value="'+esc(l.desc)+'"><input class="amt" name="amount" value="'+String(l.amount).replace(".",",")+'" aria-label="Montant"><button class="mini ok" type="submit">Enregistrer</button><button class="mini" type="button" data-act="cancel">Annuler</button></form><p class="err"></p></li>';
+    return '<li class="l"><span class="t'+(l.desc?'':' none')+'">'+(l.desc?esc(l.desc):"Sans description")+'</span><span class="a">'+eur.format(l.amount)+'</span><button class="mini" data-act="editl" '+d+'>Modifier</button><button class="x" data-act="dell" '+d+' aria-label="Supprimer la ligne">×</button></li>';
+  }
+  function secHTML(o,k,title,ph){
+    var arr=o[k];
+    return '<div class="sec"><div class="row"><h2>'+title+'</h2><span class="tot">'+eur.format(sum(arr))+'</span></div><ul>'
+      +(arr.length?arr.map(function(l){return lineHTML(o,k,l)}).join(""):'<li><p class="empty">Aucune ligne pour l’instant.</p></li>')
+      +'</ul><form class="row add" data-act="addl" data-o="'+o.id+'" data-k="'+k+'"><input class="grow" name="desc" maxlength="60" placeholder="'+ph+'" autocomplete="off"><input class="amt" name="amount" placeholder="Montant" aria-label="Montant" autocomplete="off"><button class="primary" type="submit">Ajouter</button></form><p class="err"></p></div>';
+  }
+  function orderHTML(o){
+    var e=sum(o.exp),v=sum(o.rev),head;
+    if(editing&&editing.o===o.id&&editing.k==="order")
+      head='<form class="row edit" data-act="saveo" data-o="'+o.id+'"><input class="grow" name="name" maxlength="60" value="'+esc(o.name)+'" aria-label="Nom"><input type="date" name="date" value="'+o.date+'" aria-label="Date"><button class="mini ok" type="submit">Enregistrer</button><button class="mini" type="button" data-act="cancel">Annuler</button></form>';
+    else head='<div class="head"><div><h2>'+esc(o.name)+'</h2><small>'+dfr(o.date)+'</small></div><div class="row"><button class="mini" data-act="edito" data-o="'+o.id+'">Modifier</button><button class="mini'+(confirmDel===o.id?' warn':'')+'" data-act="delo" data-o="'+o.id+'">'+(confirmDel===o.id?"Confirmer la suppression":"Supprimer")+'</button></div></div>';
+    return '<section class="card">'+head+'<div class="stats">'+stat("Dépenses",e)+stat("Revenus",v)+stat("Bénéfice",v-e,true)+'</div>'
+      +secHTML(o,"exp","Dépenses","Achat de stock, frais de port…")+secHTML(o,"rev","Revenus (produits vendus)","Produit vendu…")+'</section>';
+  }
+  function render(){
+    var E=0,V=0;state.orders.forEach(function(o){E+=sum(o.exp);V+=sum(o.rev)});
+    document.getElementById("summary").innerHTML='<div class="stats">'+stat("Dépenses totales",E)+stat("Revenus totaux",V)+stat("Bénéfice total",V-E,true,"profit")+'</div><p class="hint" style="margin:10px 0 0">'+state.orders.length+(state.orders.length>1?" commandes":" commande")+'</p>';
+    document.getElementById("orders").innerHTML=state.orders.length?state.orders.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:b.id-a.id}).map(orderHTML).join(""):'<p class="empty">Créez votre première commande pour commencer.</p>';
+    var f=document.querySelector(".edit input");if(f){f.focus();f.select();}
+  }
+
+  document.addEventListener("submit",function(ev){
+    var f=ev.target,act=f.getAttribute("data-act");if(!act)return;ev.preventDefault();
+    var o=find(+f.getAttribute("data-o")),k=f.getAttribute("data-k"),err=f.parentNode.querySelector(".err")||f.nextElementSibling;
+    if(act==="newo"){
+      var n=f.elements.name.value.trim();
+      state.orders.push({id:uid(),name:n||"Commande n°"+(state.orders.length+1),date:today(),exp:[],rev:[]});
+      f.reset();
+    }else if(act==="saveo"){
+      o.name=f.elements.name.value.trim()||o.name;o.date=f.elements.date.value||o.date;editing=null;
+    }else{
+      var amt=parseNum(f.elements.amount.value);
+      if(isNaN(amt)){if(err&&err.classList.contains("err"))err.textContent="Saisissez un montant, par exemple 12,50 ou -5.";return;}
+      var desc=f.elements.desc.value.trim();
+      if(act==="addl")o[k].push({id:uid(),desc:desc,amount:amt});
+      else{var l=o[k].filter(function(x){return x.id===+f.getAttribute("data-l")})[0];l.desc=desc;l.amount=amt;editing=null;}
+    }
+    save();render();
+    if(act==="addl"){var nf=document.querySelector('form.add[data-o="'+o.id+'"][data-k="'+k+'"] input');if(nf)nf.focus();}
+  });
+  document.addEventListener("click",function(ev){
+    var b=ev.target.closest("[data-act]");if(!b||b.tagName==="FORM")return;
+    var act=b.getAttribute("data-act"),oid=+b.getAttribute("data-o"),k=b.getAttribute("data-k"),lid=+b.getAttribute("data-l");
+    if(act==="editl")editing={o:oid,k:k,l:lid};
+    else if(act==="edito")editing={o:oid,k:"order"};
+    else if(act==="cancel")editing=null;
+    else if(act==="dell"){var o=find(oid);o[k]=o[k].filter(function(x){return x.id!==lid});save();}
+    else if(act==="delo"){
+      if(confirmDel===oid){state.orders=state.orders.filter(function(x){return x.id!==oid});confirmDel=null;save();}
+      else{confirmDel=oid;}
+    }else return;
+    if(act!=="delo")confirmDel=null;
+    render();
+  });
+  document.addEventListener("keydown",function(ev){if(ev.key==="Escape"&&(editing||confirmDel)){editing=null;confirmDel=null;render();}});
+  render();
+  /* ---- Synchronisation Supabase ---- */
+  var SB="https://ilxwerauoepxbhsuttxz.supabase.co";
+  var AK="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlseHdlcmF1b2VweGJoc3V0dHh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MTIxMDIsImV4cCI6MjEwOTI4ODEwMn0.ukLFi048-1QmTX57SvuD9RxTzBXzOMrTd1XszoKsSOk";
+  var SKEY="commandes-sync-key",syncKey="",tm=null;
+  function setSt(t,bad){var e=document.getElementById("st");e.textContent=t;e.className=bad?"ko":"";}
+  function rpc(fn,body){
+    return fetch(SB+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"Content-Type":"application/json",apikey:AK,Authorization:"Bearer "+AK},body:JSON.stringify(body)})
+      .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.text()})
+      .then(function(t){return t?JSON.parse(t):null});
+  }
+  function newKey(){var a=new Uint8Array(24);crypto.getRandomValues(a);return Array.prototype.map.call(a,function(b){return("0"+b.toString(16)).slice(-2)}).join("");}
+  function keyOk(k){return /^[A-Za-z0-9_-]{32,200}$/.test(k);}
+  function storeKey(k){syncKey=k;try{localStorage.setItem(SKEY,k);}catch(e){}}
+  (function(){
+    var m=/[#&]cle=([A-Za-z0-9_-]+)/.exec(location.hash);
+    if(m&&keyOk(m[1])){storeKey(m[1]);try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}}
+    else{var k="";try{k=localStorage.getItem(SKEY)||"";}catch(e){}storeKey(keyOk(k)?k:newKey());}
+  })();
+  function push(){
+    clearTimeout(tm);setSt("Enregistrement…");
+    tm=setTimeout(function(){
+      rpc("set_state",{p_k:syncKey,p_d:state}).then(function(){setSt("Synchronisé");}).catch(function(){setSt("Hors ligne : modifications gardées sur cet appareil",true);});
+    },500);
+  }
+  function pull(force){
+    setSt("Synchronisation…");
+    rpc("get_state",{p_k:syncKey}).then(function(r){
+      var has=r&&Array.isArray(r.orders);
+      if(has&&(force||(r.ts||0)>(state.ts||0))){
+        if(editing){setSt("Synchronisé");return;}
+        state.orders=r.orders;state.ts=r.ts||0;
+        try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
+        render();setSt("Synchronisé");
+      }else if(state.orders.length&&(!has||(r.ts||0)<(state.ts||0))){push();}
+      else setSt("Synchronisé");
+    }).catch(function(){setSt("Hors ligne : modifications gardées sur cet appareil",true);});
+  }
+  document.addEventListener("click",function(ev){
+    var b=ev.target.closest("[data-sync]");if(!b||b.tagName==="FORM")return;
+    var a=b.getAttribute("data-sync");
+    if(a==="now")pull(false);
+    else if(a==="copy"){
+      var u=location.origin+location.pathname+"#cle="+syncKey;
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u).then(function(){b.textContent="Lien copié ✓";setTimeout(function(){b.textContent="Copier le lien de synchronisation"},2000)},function(){window.prompt("Copiez ce lien :",u)});
+      else window.prompt("Copiez ce lien :",u);
+    }
+  });
+  document.addEventListener("submit",function(ev){
+    var f=ev.target;if(f.getAttribute("data-sync")!=="setkey")return;ev.preventDefault();
+    var k=f.elements.key.value.trim().replace(/^.*cle=/,""),er=document.getElementById("synerr");
+    if(!keyOk(k)){er.textContent="Clé invalide (32 caractères minimum, lettres et chiffres).";return;}
+    if(!window.confirm("Remplacer les données de cet appareil par celles de cette clé ?"))return;
+    er.textContent="";storeKey(k);f.reset();pull(true);
+  });
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")pull(false);});
+  window.addEventListener("online",function(){pull(false);});
+  pull(false);
+})();
+</script>
+</body>
+</html>
